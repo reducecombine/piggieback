@@ -202,17 +202,18 @@
             #(transport/send transport (response-for msg :status :done))))))
 
 (defn read-cljs-string [form-str]
-  (when-not (string/blank? form-str)
-    (binding [*ns* (create-ns ana/*cljs-ns*)
-              reader/resolve-symbol ana/resolve-symbol
-              reader/*data-readers* tags/*cljs-data-readers*
-              reader/*alias-map*
-              (apply merge
-                     ((juxt :requires :require-macros)
-                      (ana/get-namespace ana/*cljs-ns*)))]
-      (reader/read {:read-cond :allow :features #{:cljs}}
-                   (readers/source-logging-push-back-reader
-                    (java.io.StringReader. form-str))))))
+  (when ana/*cljs-ns*
+    (when-not (string/blank? form-str)
+      (binding [*ns* (create-ns ana/*cljs-ns*)
+                reader/resolve-symbol ana/resolve-symbol
+                reader/*data-readers* tags/*cljs-data-readers*
+                reader/*alias-map*
+                (apply merge
+                       ((juxt :requires :require-macros)
+                        (ana/get-namespace ana/*cljs-ns*)))]
+        (reader/read {:read-cond :allow :features #{:cljs}}
+                     (readers/source-logging-push-back-reader
+                      (java.io.StringReader. form-str)))))))
 
 (defn- wrap-pprint
   "Wraps sexp with cljs.pprint/pprint in order for it to return a
@@ -322,7 +323,7 @@
   (if-not (-> code string/trim (string/ends-with? ":cljs/quit"))
     (do-eval msg)
     (let [actual-repl-env (.-repl-env (@session #'*cljs-repl-env*))]
-      (cljs.repl/-tear-down actual-repl-env)
+      (some-> actual-repl-env cljs.repl/-tear-down)
       (swap! session assoc
              #'*ns* (@session #'*original-clj-ns*)
              #'*cljs-repl-env* nil
